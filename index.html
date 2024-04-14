@@ -3,7 +3,7 @@
 <html lang="ja" xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="utf-8" />
-    <title>好きな〇〇発表ドラゴンメーカー</title>
+    <title>好きな〇〇発表ドラゴンメーカー v.1.01</title>
     <style type="text/css">
 form{
     text-align: center;
@@ -11,6 +11,7 @@ form{
 h1{
     margin-top: 0px;
     margin-bottom: 0px;
+    font-size: 80%;
 }
 textarea{
     height: 10em;
@@ -48,11 +49,19 @@ class iRect{
     }
 }
 
+function getParam(type) {
+    if (!searchParam.has(type)) {
+        return null;
+    }
+    return searchParam.get(type);
+}
+
 let dImage = './souzaidragon.png';
 
 // start at 160, 120
 // end   at 540, 380
 
+const searchParam = new URLSearchParams(window.location.search);
 let oImage = new Image();
 let oWidth = 0;
 let oHeight = 0;
@@ -71,6 +80,12 @@ let reg = new RegExp(/^[!"%')\*\+\-\.,\/:;>?@\\\]^_`|}~？！。、」』】は�
 window.onload = function(){
     oImage.crossOrigin = 'anonymous';
     oImage.src = dImage;
+    
+    let p = getParam('text');
+    
+    if(p !== null){
+        document.f.t.value = p;
+    }
     
     oImage.onload = function(){
         oWidth = oImage.naturalWidth;
@@ -122,50 +137,67 @@ function drawText(txt){
     
     twod.drawImage(oImage, 0, 0, oWidth, oHeight, 0, 0, oWidth, oHeight);
     
-    twod.font = 'bold '+fSize + 'px "'+ fFamily +'"';
     twod.textAlign = "center";
     twod.textBaseline = "top";
     
     let segs = segmentedText(txt);
     let phrase = [];
     
-    let s = 0;
+    let fSizeF = fSize - 0;
     
-    let maxh = 0;
-    
-    for(let i = 0; i < segs.length; i++){
-        let st = getText(segs, s, i);
-        let w = twod.measureText(st).width;
+    while(fSizeF > 5){
+        phrase = [];
+        let mLine = Math.floor((oRect.getSize().height) / fSizeF)+1;
+        twod.font = 'bold ' + fSizeF + 'px "'+ fFamily +'"';
+        let s = 0;
         
-        //console.log(s +", " + segs.length + ", " + i + " " + st + ": " + oRect.getSize().width + " / " + w);
-        
-        if(oRect.getSize().width < w){
-            if(s == i){
-                let ph = getText(segs, s, i);
+        for(let i = 0; i < segs.length; i++){
+            let st = getText(segs, s, i);
+            let w = twod.measureText(st).width;
+            
+            //console.log(s +", " + segs.length + ", " + i + " " + st + ": " + oRect.getSize().width + " / " + w);
+            
+            if(oRect.getSize().width < w){
+                if(s == i){
+                    let ph = getText(segs, s, i);
+                    phrase.push(ph);
+                    //console.log("type: 1 " + ph);
+                    s = i+1;
+                    continue;
+                }else{
+                    let ph = getText(segs, s, --i);
+                    phrase.push(ph);
+                    //console.log("type: 2 " + ph);
+                    s = i+1;
+                    continue;
+                }
+            }
+            
+            if(segs.length - 1 === i){
+                let ph = getText(segs, s, segs.length-1);
                 phrase.push(ph);
-                //console.log("type: 1 " + ph);
-                s = i+1;
-                continue;
-            }else{
-                let ph = getText(segs, s, --i);
-                phrase.push(ph);
-                //console.log("type: 2 " + ph);
-                s = i+1;
-                continue;
+                //console.log("type: 3 " + ph);
             }
         }
         
-        if(segs.length - 1 === i){
-            let ph = getText(segs, s, segs.length-1);
-            phrase.push(ph);
-            //console.log("type: 3 " + ph);
+        if(phrase.length < mLine){
+            break;
+        }else{
+            fSizeF = Math.floor(0.8 * fSizeF);
         }
+        
     }
     
+    
     for(let i = 0; i < phrase.length; i++){
-        let lPos = getLinePos(phrase.length, i, fSize*1.1);
+        let lPos = getLinePos(phrase.length, i, fSizeF*1.1);
         twod.fillText(phrase[i], lPos.width, lPos.height)
     }
+    
+    twod.font = 'bold 10px "メイリオ"';
+    twod.fillStyle = "#B0B0B0";
+    twod.textAlign = "left";
+    twod.fillText(selfURL(), 10, oHeight - 15);
     
     let nImage = document.createElement('img');
     nImage.src = canvas.toDataURL();
@@ -202,6 +234,12 @@ function resetPos(){
     iTextPos = 0;
     osouzai = getSouzaiList();
     drawNowPos();
+    
+    document.f.u.value = selfURL() + "?text=" + encodeURIComponent(document.f.t.value);
+}
+
+function selfURL(){
+    return location.protocol + "://" + location.hostname + location.pathname;
 }
 
 function viewTextPos(){
@@ -216,8 +254,8 @@ function removeAllChild(elem){
     }
 }
 
-function getLinePos(lineMax, lineNow, fSize){
-    return new iPoint(oRect.getCenter().width, oRect.getCenter().height - (lineMax/2 - lineNow)*fSize);
+function getLinePos(lineMax, lineNow, fS){
+    return new iPoint(oRect.getCenter().width, oRect.getCenter().height - (lineMax/2 - lineNow)*fS);
 }
 
 function segmentedText(txt){
@@ -258,7 +296,8 @@ function segmentedText(txt){
 <input type="button" value="前" onclick="drawPrevImage();"> 
 今 <span id="tp">1</span> 行目
 <input type="button" value="次" onclick="drawNextImage();"><br>
-画像部分右クリから保存とかできます。
+画像部分右クリから保存とかできます。<br>
+共有用URL: <input type="text" name="u" size="120" onclick="this.select();">
 </form>
 </body>
 </html>
